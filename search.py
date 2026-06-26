@@ -17,6 +17,7 @@ _fts_reranker = LinearCombinationReranker(weight=0.3)
 # is preferred over one ranked later, even at a lower similarity score.
 _SECTION_PREFERENCE = [
     "summary",
+    "tags_cloud",          # synonym anchor — good when summary didn't match
     "technical_reference",
     "customer_experience",
     "configurability",
@@ -25,6 +26,30 @@ _SECTION_PREFERENCE = [
     "sample_question",
     "other",
 ]
+
+# Intent patterns → section types to auto-filter when route_by_intent=True.
+_INTENT_PATTERNS = [
+    (["who", "contact", "reach out", "which team", "who handles", "who do i"],
+     ["contact_team"]),
+    (["technical key", "config key", "config field", "property", "field name", "technical reference"],
+     ["technical_reference"]),
+    (["configure", "configuration", "how to set", "how to enable", "setup", "set up"],
+     ["configurability", "technical_reference"]),
+    (["customer experience", "what does user see", "what does employee see", "user experience"],
+     ["customer_experience"]),
+]
+
+
+def detect_intent(query: str):
+    """
+    Return suggested section_types based on query keywords, or None if no
+    clear intent is detected. Used when route_by_intent=True.
+    """
+    q = query.lower()
+    for keywords, section_types in _INTENT_PATTERNS:
+        if any(kw in q for kw in keywords):
+            return section_types
+    return None
 
 
 def _section_rank(section_type: str) -> int:
@@ -91,6 +116,7 @@ def search(
     status: Optional[str] = None,
     use_fts: bool = False,
     deduplicate: bool = True,
+    route_by_intent: bool = False,
     _model: Optional[SentenceTransformer] = None,
     _table=None,
 ) -> List[dict]:
@@ -108,11 +134,15 @@ def search(
         status:        "live" | "in-development" | None (default, returns all).
         use_fts:       Set True for exact keyword/technical-key lookups (e.g. "noOfApprovers").
                        Default False uses pure vector search, best for natural-language queries.
-        deduplicate:   Default True. Collapses multiple chunks from the same feature into one,
-                       preferring content-rich sections (summary, technical_reference) over
-                       sample questions. Set False to get raw per-chunk results.
-        _model:        Pre-loaded SentenceTransformer (pass from @st.cache_resource).
-        _table:        Pre-opened LanceDB table (pass from @st.cache_resource).
+        deduplicate:      Default True. Collapses multiple chunks from the same feature into one,
+                          preferring content-rich sections (summary > tags_cloud > technical_reference
+                          > … > sample_question). Set False for raw per-chunk results.
+        route_by_intent:  Default False. When True, detects query intent from keywords
+                          (e.g. "who to contact", "how to configure") and auto-applies
+                          section_type filters to surface the most relevant section.
+                          Overridden by an explicit section_types argument.
+        _model:           Pre-loaded SentenceTransformer (pass from @st.cache_resource).
+        _table:           Pre-opened LanceDB table (pass from @st.cache_resource).
 
     Returns:
         List of dicts: chunk_text, feature_name, feature_id, category, contact_team,
@@ -123,6 +153,10 @@ def search(
     table = _table or load_table()
 
     query_vec = model.encode(query, normalize_embeddings=True).tolist()
+
+    # Auto-detect section intent if requested and no explicit override given.
+    if route_by_intent and not section_types:
+        section_types = detect_intent(query)
 
     filters = []
     if status:
