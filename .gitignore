@@ -1,0 +1,8 @@
+venv/
+lancedb_store/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.sync_manifest.json
+.DS_Store
