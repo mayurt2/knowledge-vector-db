@@ -7,13 +7,14 @@ st.title("🔍 Feature Knowledge Retrieval Data")
 st.caption("Returns raw knowledge chunks from the vector DB — no LLM processing.")
 
 
-# Cached once per Streamlit process — no stale references across rerenders.
+# Model is expensive to load — cache it for the lifetime of the process.
 @st.cache_resource(show_spinner="Loading embedding model...")
 def get_model():
     return load_model()
 
 
-@st.cache_resource(show_spinner="Connecting to LanceDB...")
+# Table is NOT cached — it's cheap to reopen and must always reflect the
+# latest DB state (hard/soft sync drops and recreates the table).
 def get_table():
     return load_table()
 
