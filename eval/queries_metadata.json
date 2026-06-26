@@ -1,0 +1,471 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "Hackathon evaluation query set for the knowledge vector DB. Queries are written from the perspective of a salesperson or implementation consultant with solid product knowledge. Covers all 16 feature categories, 5 query types, and 3 difficulty tiers.",
+    "total_queries": 40,
+    "query_types": {
+      "feature_lookup":   "Does a feature exist / what does it do?",
+      "routing":          "Which team do I contact / who owns this?",
+      "policy_config":    "Can we configure X for a customer?",
+      "cross_feature":    "How do multiple features interact?",
+      "synonym_probe":    "Queries using non-standard terminology — tests tags-cloud chunk"
+    },
+    "difficulty_levels": {
+      "easy":   "Direct match to a feature name or sample question",
+      "medium": "Requires semantic understanding or category inference",
+      "hard":   "Synonym-heavy, cross-feature, or targets in-dev / whitelisted features"
+    },
+    "scoring_guide": {
+      "top1_correct":  "Expected feature appears as result #1",
+      "top3_correct":  "Expected feature appears in top 3",
+      "section_match": "Returned section_type matches expected_section",
+      "contact_match": "Returned contact_team matches expected_contact"
+    }
+  },
+  "queries": [
+
+    {
+      "id": "Q001",
+      "query": "How does trip approval work?",
+      "type": "feature_lookup",
+      "difficulty": "easy",
+      "expected_features": ["trip-approval-workflow"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.90,
+      "notes": "Baseline test — direct match to a sample question. Score should be near 1.0."
+    },
+    {
+      "id": "Q002",
+      "query": "Can we set up multi-level approval for a customer?",
+      "type": "policy_config",
+      "difficulty": "easy",
+      "expected_features": ["trip-approval-workflow"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.75,
+      "notes": "Tests whether 'multi-level' resolves to trip approval workflow."
+    },
+    {
+      "id": "Q003",
+      "query": "Who do I contact to change the approval flow for a company?",
+      "type": "routing",
+      "difficulty": "easy",
+      "expected_features": ["trip-approval-workflow"],
+      "expected_section": "contact_team",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.65,
+      "route_by_intent": true,
+      "notes": "Routing query — route_by_intent=True should surface contact_team section directly."
+    },
+    {
+      "id": "Q004",
+      "query": "Can domestic and international trips have different approvers?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["trip-approval-workflow"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.60,
+      "notes": "Requires understanding that noOfApprovers and noOfApproversIntnl are separate fields."
+    },
+    {
+      "id": "Q005",
+      "query": "What happens if the approving manager is also travelling on the trip?",
+      "type": "feature_lookup",
+      "difficulty": "medium",
+      "expected_features": ["traveling-manager-skip"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.65,
+      "notes": "Tests whether the system maps 'manager is traveling' to the traveling-manager-skip feature."
+    },
+    {
+      "id": "Q006",
+      "query": "Can we auto-approve trips that are fully within policy?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["skip-in-policy-approvals"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.60,
+      "notes": "Tests skip-in-policy-approvals — the phrase 'auto-approve within policy' is a business synonym."
+    },
+    {
+      "id": "Q007",
+      "query": "Can we restrict employees to Economy class only?",
+      "type": "policy_config",
+      "difficulty": "easy",
+      "expected_features": ["flight-cabin-class-restriction"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.75,
+      "notes": "Policy query — 'economy only' should be in tags and sample questions."
+    },
+    {
+      "id": "Q008",
+      "query": "How do I allow Business class for senior leadership?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["flight-cabin-class-restriction"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.60,
+      "notes": "Requires inferring cabin class restriction from 'business class' + 'senior' context."
+    },
+    {
+      "id": "Q009",
+      "query": "Can we set a per-trip flight spend limit?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["spend-budget-cap"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.55,
+      "notes": "Tests spend-budget-cap. 'Spend limit' and 'budget cap' are synonyms."
+    },
+    {
+      "id": "Q010",
+      "query": "Can we cap hotel spend differently for domestic vs international?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["hotel-domestic-international-budgets"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.60,
+      "notes": "Tests whether the domestic/international split is correctly attributed."
+    },
+    {
+      "id": "Q011",
+      "query": "How do we set up BTC payment for a customer?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["payment-configuration"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.55,
+      "notes": "'BTC' is a specific acronym (Bill-to-Company) — tests acronym handling in tags."
+    },
+    {
+      "id": "Q012",
+      "query": "Can employees pay online at booking time instead of bill-to-company?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["payment-configuration"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.55,
+      "notes": "Same feature, different angle — 'pay now' vs 'BTC wallet'."
+    },
+    {
+      "id": "Q013",
+      "query": "Do we have cost centre tagging for trips?",
+      "type": "feature_lookup",
+      "difficulty": "easy",
+      "expected_features": ["cost-centres"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.70,
+      "notes": "Tests cost-centres feature. 'Tagging' and 'attribution' should be in synonyms."
+    },
+    {
+      "id": "Q014",
+      "query": "How do we attribute travel spend to a department?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["cost-centres"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.55,
+      "notes": "Business phrasing for cost centre — tests synonym coverage."
+    },
+    {
+      "id": "Q015",
+      "query": "Can we capture custom data fields against trips?",
+      "type": "feature_lookup",
+      "difficulty": "easy",
+      "expected_features": ["custom-fields"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.70,
+      "notes": "Direct match to custom-fields feature."
+    },
+    {
+      "id": "Q016",
+      "query": "Can a company force users to log in only via SSO?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["force-sso-google-sso"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.65,
+      "notes": "In-development feature — tests whether status filter affects retrieval. Pass status=None."
+    },
+    {
+      "id": "Q017",
+      "query": "Do we have duplicate booking detection?",
+      "type": "feature_lookup",
+      "difficulty": "medium",
+      "expected_features": ["duplicate-booking-detection"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.65,
+      "notes": "In-development feature. Tests that in-dev features are returned when status=None."
+    },
+    {
+      "id": "Q018",
+      "query": "What is the OOP approval flow when an employee books out of policy?",
+      "type": "feature_lookup",
+      "difficulty": "medium",
+      "expected_features": ["oop-approval-routing"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.55,
+      "notes": "'OOP' is an acronym — tests tags-cloud chunk and acronym matching."
+    },
+    {
+      "id": "Q019",
+      "query": "Can we hide the out-of-policy override option from employees?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["hide-disable-oop-option", "disable-oop-toggle"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.50,
+      "notes": "Two related features. Either is a valid answer. Tests disambiguation between similar features."
+    },
+    {
+      "id": "Q020",
+      "query": "Can we push trip data to the customer's own systems in real time?",
+      "type": "feature_lookup",
+      "difficulty": "hard",
+      "expected_features": ["trip-webhook-whitelisted"],
+      "expected_section": "summary",
+      "expected_contact": "Tech Team",
+      "expected_min_score": 0.45,
+      "notes": "Whitelisted feature. 'Push to their systems' is a business synonym for webhook. Tests tags-cloud."
+    },
+    {
+      "id": "Q021",
+      "query": "Do we have an HRMS sync capability?",
+      "type": "feature_lookup",
+      "difficulty": "easy",
+      "expected_features": ["hrms-integration"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.75,
+      "notes": "Tests the new hrms-integration file added via git pull."
+    },
+    {
+      "id": "Q022",
+      "query": "Can we sync employee data from the customer's HR system?",
+      "type": "feature_lookup",
+      "difficulty": "medium",
+      "expected_features": ["hrms-integration"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.60,
+      "notes": "Same feature, business phrasing. 'HR system' and 'HRMS' are synonyms."
+    },
+    {
+      "id": "Q023",
+      "query": "Do we have SAP integration?",
+      "type": "synonym_probe",
+      "difficulty": "hard",
+      "expected_features": ["hrms-integration", "cost-object-mapping-erp-sync-whitelisted"],
+      "expected_section": "tags_cloud",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.45,
+      "notes": "Classic synonym probe. SAP is not directly named — tests whether ERP/HRMS tags surface the right features."
+    },
+    {
+      "id": "Q024",
+      "query": "Can we show employees a cheaper flight option when they pick expensive?",
+      "type": "feature_lookup",
+      "difficulty": "medium",
+      "expected_features": ["flight-cheaper-rate-suggestion"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.55,
+      "notes": "Tests flight-cheaper-rate-suggestion — 'cheaper alternative' phrasing."
+    },
+    {
+      "id": "Q025",
+      "query": "Can we block employees from booking flights more than 30 days in advance?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["advance-purchase-rule"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.55,
+      "notes": "Advance purchase rule — 'days in advance' is the key phrase."
+    },
+    {
+      "id": "Q026",
+      "query": "Can employees book on behalf of a guest traveller?",
+      "type": "feature_lookup",
+      "difficulty": "medium",
+      "expected_features": ["guest-policy-allowed", "applicable-guest-policy-type"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.55,
+      "notes": "Guest bookings category. Tests 'guest traveller' vs 'guest booking' terminology."
+    },
+    {
+      "id": "Q027",
+      "query": "Who do I contact to enable Insights V2 for a customer?",
+      "type": "routing",
+      "difficulty": "medium",
+      "expected_features": ["insights-v2"],
+      "expected_section": "contact_team",
+      "expected_contact": "Tech Team",
+      "expected_min_score": 0.60,
+      "route_by_intent": true,
+      "notes": "Whitelisted feature owned by Tech Team — routing query must return Tech Team, not Onboarding."
+    },
+    {
+      "id": "Q028",
+      "query": "Can we export trip data automatically to an external system?",
+      "type": "feature_lookup",
+      "difficulty": "hard",
+      "expected_features": ["trip-employee-export", "trip-webhook-whitelisted"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.45,
+      "notes": "Two possible features. Tests disambiguation between export (pull) and webhook (push)."
+    },
+    {
+      "id": "Q029",
+      "query": "What reports does the platform provide out of the box?",
+      "type": "feature_lookup",
+      "difficulty": "medium",
+      "expected_features": ["reports-module-whitelisted", "insights-v2"],
+      "expected_section": "summary",
+      "expected_contact": "Tech Team",
+      "expected_min_score": 0.45,
+      "notes": "Reporting category — tests whether 'reports' maps to the whitelisted reports module."
+    },
+    {
+      "id": "Q030",
+      "query": "How does a user create a trip step by step?",
+      "type": "feature_lookup",
+      "difficulty": "easy",
+      "expected_features": ["how-to-create-a-trip"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.75,
+      "notes": "Tests the how-to guide added as a new knowledge file."
+    },
+    {
+      "id": "Q031",
+      "query": "Can a trip auto-expire if the employee doesn't act on it?",
+      "type": "feature_lookup",
+      "difficulty": "medium",
+      "expected_features": ["trip-auto-expiry"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.60,
+      "notes": "'Auto-expire' and 'doesn't act on it' — tests summary retrieval for lifecycle features."
+    },
+    {
+      "id": "Q032",
+      "query": "Can we add the company logo to the platform?",
+      "type": "policy_config",
+      "difficulty": "easy",
+      "expected_features": ["company-client-logo"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.70,
+      "notes": "Branding category. Simple lookup."
+    },
+    {
+      "id": "Q033",
+      "query": "Can we charge a management fee on top of bookings?",
+      "type": "feature_lookup",
+      "difficulty": "medium",
+      "expected_features": ["convenience-management-fees"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.55,
+      "notes": "Invoicing category — 'management fee' terminology."
+    },
+    {
+      "id": "Q034",
+      "query": "Can employees modify a booking after it is confirmed?",
+      "type": "feature_lookup",
+      "difficulty": "easy",
+      "expected_features": ["post-booking-modification"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.70,
+      "notes": "Post-booking modification — 'after confirmed' is the key phrase."
+    },
+    {
+      "id": "Q035",
+      "query": "What travel modes can be enabled or disabled for a company?",
+      "type": "policy_config",
+      "difficulty": "medium",
+      "expected_features": ["travel-mode-eligibility"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.55,
+      "notes": "Travel mode eligibility — tests whether 'modes' maps to the right feature."
+    },
+    {
+      "id": "Q036",
+      "query": "Can we set different travel policies for different employee grades?",
+      "type": "cross_feature",
+      "difficulty": "hard",
+      "expected_features": ["policy-targeting-rules", "policy-company-employee-guest-mapping"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.45,
+      "notes": "Cross-feature query spanning policy targeting and mapping. Requires understanding of policy hierarchy."
+    },
+    {
+      "id": "Q037",
+      "query": "noOfApprovers",
+      "type": "synonym_probe",
+      "difficulty": "hard",
+      "expected_features": ["trip-approval-workflow"],
+      "expected_section": "technical_reference",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.50,
+      "use_fts": true,
+      "notes": "Exact technical key lookup — requires use_fts=True for best results."
+    },
+    {
+      "id": "Q038",
+      "query": "Can we enable frequent flyer number capture for employees?",
+      "type": "feature_lookup",
+      "difficulty": "medium",
+      "expected_features": ["frequent-flyer"],
+      "expected_section": "summary",
+      "expected_contact": "Tech Team",
+      "expected_min_score": 0.65,
+      "notes": "Frequent flyer — owned by Tech Team (whitelisted). Tests correct team routing."
+    },
+    {
+      "id": "Q039",
+      "query": "Can we prevent employees from creating trips for certain date ranges?",
+      "type": "policy_config",
+      "difficulty": "hard",
+      "expected_features": ["allow-trip-creation-date-range", "restrict-trip-creation-whitelisted"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.45,
+      "notes": "Two features cover this — tests which one surfaces first. 'prevent' vs 'allow' framing."
+    },
+    {
+      "id": "Q040",
+      "query": "We have a customer asking why their employees can't see the cheaper refundable ticket — is there a feature for that?",
+      "type": "synonym_probe",
+      "difficulty": "hard",
+      "expected_features": ["flight-fare-type-restriction", "flight-cheaper-rate-suggestion"],
+      "expected_section": "summary",
+      "expected_contact": "Onboarding Team",
+      "expected_min_score": 0.40,
+      "notes": "Long conversational query. Tests whether 'refundable ticket' maps to fare type restriction."
+    }
+  ]
+}
