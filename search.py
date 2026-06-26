@@ -12,6 +12,89 @@ EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 # FTS reranker — weight=0.3 means 30% vector + 70% FTS, good for exact technical key lookups.
 _fts_reranker = LinearCombinationReranker(weight=0.3)
 
+# Section types ordered from most to least content-rich.
+# When deduplicating per feature, a chunk ranked earlier in this list
+# is preferred over one ranked later, even at a lower similarity score.
+_SECTION_PREFERENCE = [
+    "summary",
+    "tags_cloud",          # synonym anchor — good when summary didn't match
+    "technical_reference",
+    "customer_experience",
+    "configurability",
+    "related_settings",
+    "contact_team",
+    "sample_question",
+    "other",
+]
+
+# Intent patterns → section types to auto-filter when route_by_intent=True.
+_INTENT_PATTERNS = [
+    (["who", "contact", "reach out", "which team", "who handles", "who do i"],
+     ["contact_team"]),
+    (["technical key", "config key", "config field", "property", "field name", "technical reference"],
+     ["technical_reference"]),
+    (["configure", "configuration", "how to set", "how to enable", "setup", "set up"],
+     ["configurability", "technical_reference"]),
+    (["customer experience", "what does user see", "what does employee see", "user experience"],
+     ["customer_experience"]),
+]
+
+
+def detect_intent(query: str):
+    """
+    Return suggested section_types based on query keywords, or None if no
+    clear intent is detected. Used when route_by_intent=True.
+    """
+    q = query.lower()
+    for keywords, section_types in _INTENT_PATTERNS:
+        if any(kw in q for kw in keywords):
+            return section_types
+    return None
+
+
+def _section_rank(section_type: str) -> int:
+    try:
+        return _SECTION_PREFERENCE.index(section_type)
+    except ValueError:
+        return len(_SECTION_PREFERENCE)
+
+
+def _deduplicate_by_feature(chunks: List[dict], top_k: int) -> List[dict]:
+    """
+    Collapse multiple chunks from the same feature into one result.
+
+    Selection rule per feature:
+      1. Keep the highest-scoring chunk overall as the relevance anchor
+         (determines the feature's rank in the final list).
+      2. Among all chunks for that feature, prefer the most content-rich
+         section type (summary > technical_reference > ... > sample_question).
+      3. If the best content chunk scored below threshold it was already
+         filtered — just return the best remaining chunk.
+    """
+    # Group chunks by feature_id, preserving insertion order (already sorted by score).
+    groups = {}
+    for chunk in chunks:
+        fid = chunk["feature_id"]
+        if fid not in groups:
+            groups[fid] = []
+        groups[fid].append(chunk)
+
+    results = []
+    for fid, group in groups.items():
+        # Best score = top of the group (list is score-sorted).
+        best_score = group[0]["score"]
+
+        # Pick the most content-rich chunk in this group.
+        best_content = min(group, key=lambda c: _section_rank(c["section_type"]))
+
+        # Surface the best content chunk but stamp it with the group's best score
+        # so ranking reflects how well the feature matched the query overall.
+        entry = dict(best_content)
+        entry["score"] = best_score
+        results.append(entry)
+
+    return results[:top_k]
+
 
 def load_model() -> SentenceTransformer:
     """Load the embedding model. Call once and cache the result externally."""
@@ -32,6 +115,8 @@ def search(
     section_types: Optional[List[str]] = None,
     status: Optional[str] = None,
     use_fts: bool = False,
+    deduplicate: bool = True,
+    route_by_intent: bool = False,
     _model: Optional[SentenceTransformer] = None,
     _table=None,
 ) -> List[dict]:
@@ -49,18 +134,29 @@ def search(
         status:        "live" | "in-development" | None (default, returns all).
         use_fts:       Set True for exact keyword/technical-key lookups (e.g. "noOfApprovers").
                        Default False uses pure vector search, best for natural-language queries.
-        _model:        Pre-loaded SentenceTransformer (pass from @st.cache_resource to avoid reload).
-        _table:        Pre-opened LanceDB table (pass from @st.cache_resource to avoid stale refs).
+        deduplicate:      Default True. Collapses multiple chunks from the same feature into one,
+                          preferring content-rich sections (summary > tags_cloud > technical_reference
+                          > … > sample_question). Set False for raw per-chunk results.
+        route_by_intent:  Default False. When True, detects query intent from keywords
+                          (e.g. "who to contact", "how to configure") and auto-applies
+                          section_type filters to surface the most relevant section.
+                          Overridden by an explicit section_types argument.
+        _model:           Pre-loaded SentenceTransformer (pass from @st.cache_resource).
+        _table:           Pre-opened LanceDB table (pass from @st.cache_resource).
 
     Returns:
-        List of dicts with keys: chunk_text, feature_name, feature_id, category,
-        contact_team, config_source, status, section_type, section_heading, tags, score, source_file.
+        List of dicts: chunk_text, feature_name, feature_id, category, contact_team,
+        config_source, status, section_type, section_heading, tags, score, source_file.
         Returns empty list if no results meet the threshold.
     """
     model = _model or load_model()
     table = _table or load_table()
 
     query_vec = model.encode(query, normalize_embeddings=True).tolist()
+
+    # Auto-detect section intent if requested and no explicit override given.
+    if route_by_intent and not section_types:
+        section_types = detect_intent(query)
 
     filters = []
     if status:
@@ -77,6 +173,10 @@ def search(
 
     where_clause = " AND ".join(filters) if filters else None
 
+    # Fetch more candidates when deduplicating so we have enough unique features
+    # after collapsing same-feature duplicates.
+    fetch_k = top_k * 6 if deduplicate else top_k
+
     if use_fts:
         q = (
             table.search(query_type="hybrid")
@@ -89,7 +189,7 @@ def search(
 
     if where_clause:
         q = q.where(where_clause, prefilter=True)
-    results = q.limit(top_k).to_list()
+    results = q.limit(fetch_k).to_list()
 
     output = [
         {
@@ -113,6 +213,9 @@ def search(
 
     if threshold is not None:
         output = [r for r in output if r["score"] >= threshold]
+
+    if deduplicate:
+        output = _deduplicate_by_feature(output, top_k)
 
     return output
 
